@@ -1,19 +1,46 @@
-from doit.action import CmdAction
+from doit import task_params
+from doit.tools import Interactive
+from tools.doit.common.environment import get_expected_build_types
 
-def run_build(is_release: bool):
-    return CmdAction('/usr/bin/cmake --build /home/synex/dev/cpp/time-tracker/backend/build --parallel 16 --')
+def run_build(clean: bool, release:bool, debug:bool):
+    build_types = get_expected_build_types(release=release, debug=debug)
 
-def task_build():
+    cmds = []
+    for build_type in build_types:
+        cmds += [f'cmake --build --preset conan-{build_type.lower()}']
+        if clean:
+            cmds[-1] += ' --clean-first'
+
+    return ' && '.join(cmds)
+
+
+@task_params([
+    {
+        'name': 'clean',
+        'short': 'f',
+        'long': 'clean',
+        'default': False,
+        'type': bool,
+        'help': 'Clean rebuild'
+    },
+    {
+        'name': 'release',
+        'long': 'release',
+        'default': False,
+        'type': bool,
+        'help': 'Configure only release project'
+    },
+    {
+        'name': 'debug',
+        'long': 'debug',
+        'default': False,
+        'type': bool,
+        'help': 'Configure only debug project'
+    },
+])
+def task_build(clean: bool, release: bool, debug: bool):
     return {
-        'actions': [run_build],
+        'actions': [Interactive(run_build)],
         'doc': 'Builds binary for the app',
-        'params': [
-            {
-                'name': 'is_release',
-                'long': 'release',
-                'default': False,
-                'type': bool,
-                'help': 'Build a release version'
-            }
-        ],
+        'task_dep': ['configure'],
     }

@@ -1,22 +1,10 @@
 from doit import task_params
 from doit.action import CmdAction
 from doit.tools import create_folder, Interactive
-from tools.doit.common.environment import get_project_root, get_project_build_dir
+from tools.doit.common.environment import BUILD_TYPE, get_project_root, get_project_build_dir, get_expected_build_types
 import logging
 
 import shutil
-
-
-def get_expected_types(release: bool, debug: bool):
-    all = not release and not debug
-    release = release or all
-    debug = debug or all
-    types = []
-    if debug:
-        types += ["debug"]
-    if release:
-        types += ["release"]
-    return types
 
 
 def prepare_build_folder(reconfigure: bool):
@@ -28,30 +16,33 @@ def prepare_build_folder(reconfigure: bool):
     create_folder(build_path)
 
 
-def conan_install(release:bool, debug:bool):
+def conan_install(release:bool, debug:bool) -> str:
     flags_positive = release and debug
 
     if flags_positive:
         logging.error("Flags --release and --debug can not be used at the sametime")
         return 
     
-    types = get_expected_types(release=release, debug=debug)
+    types = get_expected_build_types(release=release, debug=debug)
 
-    build_system = "Ninja" if CmdAction("command -v ninja",).execute() is None else "Unix Makefiles"
+    build_system = "Ninja Multi-Config" if CmdAction("command -v ninja",).execute() is None else "Unix Makefiles"
 
     cmds = []
     for build_type in types:
-        print(build_type)
-        profile = f"default-{build_type}"
-        cmds += [
-            f"conan install {get_project_root()} "
-            f"--output-folder={get_project_build_dir(build_type=build_type)} "
-            f"--build=missing "
-            f"-c tools.cmake.cmaketoolchain:generator=\"{build_system}\" "
-            f"--profile {profile}"
-        ]
-    
-    return " && ".join(cmds) 
+        conan_install_cmd = " ".join([
+            f"conan install {get_project_root()}",
+            f"--output-folder={get_project_build_dir()}",
+            f"--build=missing",
+            f"-s build_type={build_type}",
+            f"-c tools.cmake.cmaketoolchain:generator=\"{build_system}\"",
+            f"-pr=default"
+        ]) 
+        cmake_configure_cmd = " ".join([
+            f"cmake --preset conan-default"
+        ])
+        cmds += [" && ".join([conan_install_cmd, cmake_configure_cmd])]
+
+    return " && ".join(cmds)
 
 
 @task_params([
@@ -84,8 +75,10 @@ def task_configure(reconfigure, release, debug):
             prepare_build_folder,
             Interactive(conan_install),
         ],
-        'targets': [get_project_build_dir(build_type) / "conan_toolchain.cmake" for build_type in get_expected_types(release, debug)],
+        'targets': [
+            get_project_build_dir() / "conan_toolchain.cmake", 
+            *(get_project_build_dir() / build_type for build_type in get_expected_build_types(release, debug))
+        ],
         'uptodate': [True and not reconfigure], 
         'doc': 'Configures the project',
     }
-    
