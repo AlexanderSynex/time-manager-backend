@@ -1,4 +1,0 @@
-{
-  "cmake.configurePreset": "conan-release",
-  "cmake.buildPreset": "conan-release"
-}
