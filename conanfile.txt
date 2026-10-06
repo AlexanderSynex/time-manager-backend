@@ -1,5 +1,5 @@
 [requires]
-userver/2.15
+userver/3.3-rc
 
 [generators]
 CMakeDeps
