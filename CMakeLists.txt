@@ -33,16 +33,18 @@ add_subdirectory(third-party)
 
 find_package(userver COMPONENTS core postgresql REQUIRED)
 
-set(SOURCES src/main.cpp 
-            src/info/Worker.cpp
-            src/info/Department.cpp
-            src/services/AdministrationService.cpp
-            src/services/WorktimeService.cpp
-            src/services/UserInfoService.cpp
-            src/services/AuthService.cpp
-            src/services/AuthCheckerFactory.cpp
-            src/services/auth/schemas/BearerSchema.cpp
-            src/services/details/UserService.cpp)
+# set(SOURCES src/main.cpp 
+#             src/info/Worker.cpp
+#             src/info/Department.cpp
+#             src/services/AdministrationService.cpp
+#             src/services/WorktimeService.cpp
+#             src/services/UserInfoService.cpp
+#             src/services/AuthService.cpp
+#             src/services/AuthCheckerFactory.cpp
+#             src/services/auth/schemas/BearerSchema.cpp
+#             src/services/details/UserService.cpp)
+
+file(GLOB_RECURSE SOURCES src/*.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
@@ -60,10 +62,13 @@ userver_add_sql_library(
 
 set(SQL_LIBS ${PROJECT_NAME}_postgres_sql)
 
-
 target_link_libraries(${PROJECT_NAME} PRIVATE userver::core userver::postgresql ${SQL_LIBS})
-target_include_directories(${PROJECT_NAME} PUBLIC include)
+target_include_directories(${PROJECT_NAME} PUBLIC src)
 
 if(EXISTS ${CMAKE_BINARY_DIR}/compile_commands.json)
-  file(COPY ${CMAKE_BINARY_DIR}/compile_commands.json DESTINATION ${CMAKE_SOURCE_DIR})
+  file(CREATE_LINK 
+       ${CMAKE_BINARY_DIR}/compile_commands.json 
+       ${CMAKE_SOURCE_DIR}/compile_commands.json
+       RESULT _
+       SYMBOLIC)
 endif()
