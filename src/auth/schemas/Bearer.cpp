@@ -1,4 +1,4 @@
-#include "services/auth/schemas/BearerSchema.hpp"
+#include "Bearer.hpp"
 
 #include <string>
 
@@ -11,7 +11,7 @@ BearerAuthSchema::extractToken (std::string_view header)
   if (authSchemaPos == std::string::npos
       or std::string_view{ header.data (), authSchemaPos } != AuthType)
     {
-      return {};
+      return std::nullopt;
     }
   return std::string{ header.data () + authSchemaPos + 1 };
 }

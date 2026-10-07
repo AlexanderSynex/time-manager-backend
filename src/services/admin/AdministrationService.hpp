@@ -1,9 +1,9 @@
 #pragma once
 
-#include "info/Worker.hpp"
-#include "services/details/UserService.hpp"
+#include "services/common/DataBaseAccessable.hpp"
 
 #include <string_view>
+
 #include <userver/clients/dns/component.hpp>
 #include <userver/components/component_config.hpp>
 #include <userver/components/component_context.hpp>
@@ -21,7 +21,7 @@ namespace services::control_role
 
 ///@brief Служебный сервис для управления данными о пользователях
 class AdministrationService final
-    : public details::UserService,
+    : public common::DataBaseAccessable,
       public userver::server::handlers::HttpHandlerJsonBase
 {
 public:
@@ -34,17 +34,6 @@ public:
   Value HandleRequestJsonThrow (const HttpRequest &request,
                                 const Value &request_json,
                                 RequestContext &context) const override;
-
-private:
-  Value HandleUserJsonThrow (const HttpRequest &request,
-                             const Value &request_json,
-                             RequestContext &context) const;
-  userver::formats::json::Value modifyUser (Worker &&user,
-                                            const Value &request_json) const;
-  void modifyUser (const Worker &user, Worker::Info &&info) const;
-  void modifyUserAccount (const Worker &user,
-                          std::string_view raw_password) const;
-  void modifyUserInfo (const Worker &user, Worker::Info &&info) const;
 
 private:
   userver::storages::postgres::ClusterPtr p_db = nullptr;

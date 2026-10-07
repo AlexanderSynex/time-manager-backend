@@ -1,6 +1,7 @@
-#include "services/AuthCheckerFactory.hpp"
-#include "caching/AuthPolicy.hpp"
-#include "services/auth/AuthBearerChecker.hpp"
+#include "AuthCheckerFactory.hpp"
+
+#include "auth/Cache.hpp"
+#include "auth/schemas/Bearer.hpp"
 
 #include <fmt/format.h>
 #include <memory>
@@ -15,7 +16,7 @@ using namespace services::auth;
 
 AuthCheckerFactory::AuthCheckerFactory (
     const userver::components::ComponentContext &context)
-    : cache{ context.FindComponent<caching::AuthCache> () }
+    : cache{ context.FindComponent<cache::AuthCache> () }
 {
 }
 
@@ -26,6 +27,6 @@ AuthCheckerFactory::MakeAuthChecker (
 {
   auto scopes
       = auth_config["scopes"].As<userver::server::auth::UserScopes> ({});
-  return std::make_shared<schemas::AuthBearerChecker> (cache,
+  return std::make_shared<schemas::types::AuthBearerChecker> (cache,
                                                        std::move (scopes));
 }

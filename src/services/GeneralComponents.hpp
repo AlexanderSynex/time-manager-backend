@@ -1,8 +1,7 @@
 #pragma once
 
-#include "info/DBInfo.hpp"
-#include "middleware/CorsMiddlewareFactory.hpp"
-#include "middleware/MiddlewarePipelineBuilder.hpp"
+#include "env/Database.hpp"
+
 #include <userver/clients/dns/component.hpp>
 #include <userver/components/component_list.hpp>
 #include <userver/server/middlewares/cors.hpp>
@@ -16,8 +15,8 @@ static const auto CommonComponents
     = [] () -> userver::components::ComponentList {
   return userver::components::ComponentList{}
       .Append<userver::clients::dns::Component> ()
+      .Append<userver::server::middlewares::CorsFactory> ()
       .Append<userver::components::TestsuiteSupport> ()
-      .Append<userver::components::Postgres> (db::info::db_name)
-      .Append<userver::server::middlewares::CorsFactory> ();
+      .Append<userver::components::Postgres> (env::database::name);
 };
 }

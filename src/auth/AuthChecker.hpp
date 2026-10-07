@@ -1,7 +1,9 @@
 #pragma once
 
-#include "caching/AuthPolicy.hpp"
-#include "info/CookieInfo.hpp"
+#include "auth/Cache.hpp"
+#include "auth/Info.hpp"
+
+#include "env/cache/Cookies.hpp"
 
 #include <optional>
 #include <string>
@@ -26,7 +28,7 @@ class AuthChecker final
 public:
   using AuthCheckResult = userver::server::handlers::auth::AuthCheckResult;
 
-  AuthChecker (const services::caching::AuthCache &auth_cache,
+  AuthChecker (const services::auth::cache::AuthCache &auth_cache,
                std::vector<userver::server::auth::UserScope> required_scopes)
       : auth_cache_ (auth_cache), required_scopes_{ required_scopes }
   {
@@ -35,16 +37,16 @@ public:
   std::optional<std::string>
   extractToken (const userver::server::http::HttpRequest &request) const
   {
-    if (request.HasCookie (info::cookies::access_token_name.data ()))
+    if (request.HasCookie (env::cache::cookies::token.data ()))
       {
-        return request.GetCookie (info::cookies::access_token_name.data ());
+        return request.GetCookie (env::cache::cookies::token.data ());
       }
 
     auto authHeader
         = request.GetHeader (userver::http::headers::kAuthorization);
     if (authHeader.empty ())
       {
-        return {};
+        return std::nullopt;
       }
 
     auto token = AuthSchema::extractToken (authHeader);
@@ -57,7 +59,7 @@ public:
   [[nodiscard]] userver::server::handlers::auth::AuthCheckResult
   CheckAuth (
       const userver::server::http::HttpRequest &request,
-      userver::server::request::RequestContext &request_context) const override
+      userver::server::request::RequestContext &) const override
   {
     if (request.GetMethod () == userver::server::http::HttpMethod::kOptions)
       {
@@ -83,7 +85,7 @@ public:
                                 "Token invalid" };
       }
 
-    const services::caching::AuthInfo &info = it->second;
+    const services::auth::AuthInfo &info = it->second;
 
     for (auto scope : required_scopes_)
       {
@@ -95,7 +97,7 @@ public:
                                                  scope.GetValue ()) };
           }
       }
-    request_context.SetData ("table_id", info.table_id);
+    // request_context.SetData ("table_id", info.table_id);
     return {};
   }
 
@@ -106,7 +108,7 @@ public:
   }
 
 private:
-  const services::caching::AuthCache &auth_cache_;
+  const services::auth::cache::AuthCache &auth_cache_;
   const std::vector<userver::server::auth::UserScope> required_scopes_;
 };
 

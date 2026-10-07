@@ -1,7 +1,9 @@
 #pragma once
 
-#include "caching/AuthPolicy.hpp"
+#include "auth/Cache.hpp"
+
 #include <string_view>
+
 #include <userver/server/handlers/auth/auth_checker_factory.hpp>
 
 namespace services::auth
@@ -21,7 +23,7 @@ public:
       const override;
 
 private:
-  const caching::AuthCache &cache;
+  const cache::AuthCache &cache;
 };
 
 }

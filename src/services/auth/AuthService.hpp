@@ -1,6 +1,7 @@
 #pragma once
 
-#include "services/details/UserService.hpp"
+#include "services/common/DataBaseAccessable.hpp"
+
 #include <optional>
 #include <string>
 #include <string_view>
@@ -13,12 +14,13 @@
 namespace services::auth
 {
 
-class AuthService final : public control_role::details::UserService,
+class AuthService final : public common::DataBaseAccessable,
                           public userver::server::handlers::HttpHandlerJsonBase
 {
 public:
-  static constexpr std::string_view authSchema = "Bearer";
   static constexpr std::string_view kName = "auth-service";
+
+  static constexpr std::string_view authSchema = "Bearer";
 
   explicit AuthService (
       const userver::components::ComponentConfig &config,

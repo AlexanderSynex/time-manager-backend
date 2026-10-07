@@ -12,13 +12,12 @@
 // Note: this is for the purposes of tests/samples only
 #include <userver/utest/using_namespace_userver.hpp>
 
-#include "caching/AuthPolicy.hpp"
-#include "services/AdministrationService.hpp"
-#include "services/AuthCheckerFactory.hpp"
-#include "services/AuthService.hpp"
+#include "auth/Cache.hpp"
+#include "services/auth/AuthService.hpp"
 #include "services/GeneralComponents.hpp"
-#include "services/InfoComponents.hpp"
-#include "services/WorktimeService.hpp"
+#include "services/admin/AdministrationService.hpp"
+#include "services/auth/AuthCheckerFactory.hpp"
+#include "services/auth/AuthService.hpp"
 
 int
 main (int argc, char *argv[])
@@ -30,10 +29,8 @@ main (int argc, char *argv[])
       = components::MinimalServerComponentList ()
             .AppendComponentList (services::components::CommonComponents ())
             .Append<services::auth::AuthService> ()
-            .Append<services::caching::AuthCache> ()
-            .Append<services::control_role::AdministrationService> ()
-            .Append<services::control_role::WorktimeService> ()
-            .AppendComponentList (services::components::InfoComponents ());
+            .Append<services::auth::cache::AuthCache> ()
+            .Append<services::control_role::AdministrationService> ();
 
   return utils::DaemonMain (argc, argv, component_list);
 }

@@ -1,7 +1,11 @@
-#include "info/CookieInfo.hpp"
-#include "info/DBInfo.hpp"
+#include "AuthService.hpp"
+
+#include "env/cache/Cookies.hpp"
+
 #include <fmt/format.h>
-#include <sstream>
+#include <userver/components/component_config.hpp>
+#include <userver/components/component_context.hpp>
+
 #include <userver/formats/json/value.hpp>
 #include <userver/http/predefined_header.hpp>
 #include <userver/http/status_code.hpp>
@@ -9,10 +13,10 @@
 #include <userver/server/handlers/exceptions.hpp>
 #include <userver/server/http/http_request.hpp>
 #include <userver/server/http/http_response_cookie.hpp>
+#include <userver/storages/postgres/cluster.hpp>
 #include <userver/storages/postgres/cluster_types.hpp>
-#define UNUSED(x) static_cast<void> (x)
 
-#include "services/AuthService.hpp"
+#include "services/common/DataBaseAccessable.hpp"
 #include "worktime_postgres_service/sql_queries.hpp"
 
 #include <userver/crypto/hash.hpp>
@@ -28,8 +32,7 @@ using namespace services::auth;
 AuthService::AuthService (
     const userver::components::ComponentConfig &config,
     const userver::components::ComponentContext &component_context)
-    : control_role::details::UserService (component_context,
-                                          db::info::db_name),
+    : common::DataBaseAccessable (component_context),
       userver::server::handlers::HttpHandlerJsonBase (config,
                                                       component_context)
 {
@@ -52,16 +55,16 @@ AuthService::validateCredentials (std::string_view login,
 bool
 AuthService::validateCookie (const HttpRequest &request) const
 {
-  if (not request.HasCookie (info::cookies::access_token_name.data ()))
+  if (not request.HasCookie (env::cache::cookies::token.data ()))
     {
       return false;
     }
 
   auto trx = db ()->Begin ("auth-token-validation-transaction",
                            storages::postgres::ClusterHostType::kMaster, {});
-  auto res = trx.Execute (
-      worktime_postgres_service::sql::kValidateToken,
-      request.GetCookie (info::cookies::access_token_name.data ()));
+  auto res
+      = trx.Execute (worktime_postgres_service::sql::kValidateToken,
+                     request.GetCookie (env::cache::cookies::token.data ()));
   trx.Rollback ();
   return res.RowsAffected ();
 }
@@ -74,13 +77,15 @@ AuthService::HandleRequestJsonThrow (const HttpRequest &request,
   std::string action = request.GetPathArg ("action");
   auto handlers = std::unordered_map<std::string, std::function<Value ()>>{
     { "login",
-      [&request, &request_json, &context, this] () -> Value {
-        return HandleLoginRequestJsonThrow (request, request_json, context);
-      } },
+      [&request, &request_json, &context, this] () -> Value
+        {
+          return HandleLoginRequestJsonThrow (request, request_json, context);
+        } },
     { "logout",
-      [&request, &request_json, &context, this] () -> Value {
-        return HandleLogoutRequestJsonThrow (request, request_json, context);
-      } }
+      [&request, &request_json, &context, this] () -> Value
+        {
+          return HandleLogoutRequestJsonThrow (request, request_json, context);
+        } }
   };
 
   auto handlerIt = handlers.find (action);
@@ -107,9 +112,9 @@ std::optional<std::string>
 AuthService::getCookieAccessToken (
     const server::http::HttpRequest &request) const
 {
-  if (not request.HasCookie (info::cookies::access_token_name.data ()))
-    return {};
-  return request.GetCookie (info::cookies::access_token_name.data ());
+  if (not request.HasCookie (env::cache::cookies::token.data ()))
+    return std::nullopt;
+  return request.GetCookie (env::cache::cookies::token.data ());
 }
 
 void
@@ -128,17 +133,19 @@ AuthService::HandleLoginRequestJsonThrow (const HttpRequest &request,
                                           const Value &request_json,
                                           RequestContext &) const
 {
-  if (request.GetMethod () != userver::v2_15::server::http::HttpMethod::kPost)
+  if (request.GetMethod ()
+      != userver::v3_3_rc::server::http::HttpMethod::kPost)
     {
       throw ClientError (ExternalBody{ "Unsupported method" });
     }
 
-  auto prepareMessage = [] (std::string_view token) -> formats::json::Value {
-    auto response = formats::json::ValueBuilder{};
-    response["token"] = token;
-    response["logged"] = true;
-    return response.ExtractValue ();
-  };
+  auto prepareMessage = [] (std::string_view token) -> formats::json::Value
+    {
+      auto response = formats::json::ValueBuilder{};
+      response["token"] = token;
+      response["logged"] = true;
+      return response.ExtractValue ();
+    };
 
   if (validateCookie (request))
     {
@@ -156,7 +163,7 @@ AuthService::HandleLoginRequestJsonThrow (const HttpRequest &request,
     }
   if (not request_json[loginTarget].IsString ())
     {
-      request.SetResponseStatus (userver::v2_15::http::kBadRequest);
+      request.SetResponseStatus (userver::v3_3_rc::http::kBadRequest);
       throw ClientError (ExternalBody{ "Login must be a string" });
     }
   if (not request_json[passwordTarget].IsString ())
@@ -185,9 +192,9 @@ AuthService::HandleLoginRequestJsonThrow (const HttpRequest &request,
       updateAccessToken (login, access_token);
     }
 
-  auto cookie = userver::server::http::Cookie{
-    info::cookies::access_token_name.data (), access_token
-  };
+  auto cookie
+      = userver::server::http::Cookie{ env::cache::cookies::token.data (),
+                                       access_token };
   cookie.SetHttpOnly ();
   cookie.SetPath ("/");
   cookie.SetMaxAge (std::chrono::hours (24));
@@ -198,11 +205,10 @@ AuthService::HandleLoginRequestJsonThrow (const HttpRequest &request,
 
 AuthService::Value
 AuthService::HandleLogoutRequestJsonThrow (const HttpRequest &request,
-                                           const Value &request_json,
+                                           const Value &,
                                            RequestContext &) const
 {
-  UNUSED (request_json);
-  if (request.GetMethod () != userver::v2_15::server::http::HttpMethod::kGet)
+  if (request.GetMethod () != userver::v3_3_rc::server::http::HttpMethod::kGet)
     {
       throw ClientError (ExternalBody{ "Unsupported method" });
     }
